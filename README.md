@@ -40,4 +40,6 @@ Las pruebas usan la variable `AUTH_DB_URL` configurada en Surefire (`target/test
 
 ## Propósito de la rama `main`
 
-La rama contiene deuda técnica y de seguridad deliberada: token reversible, secreto hardcodeado, CORS permisivo, método largo, manejo genérico de excepciones y dependencias con CVEs. El login ya usa consulta parametrizada y contraseñas hasheadas.
+La rama contiene deuda técnica y de seguridad deliberada: SQL concatenado, contraseñas en texto plano, token reversible, secreto hardcodeado, CORS permisivo, método largo, manejo genérico de excepciones y dependencias con CVEs.
+
+La rama `fix/h1-login-sql-passwords` corrige el SQL concatenado y las contraseñas en texto plano (H1). Hasta que ese PR se fusione, `main` conserva la versión original.
