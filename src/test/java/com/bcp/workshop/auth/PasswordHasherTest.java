@@ -32,4 +32,18 @@ class PasswordHasherTest {
         assertFalse(PasswordHasher.matches("x", "pbkdf2_sha256$600000$AAAA"));
         assertFalse(PasswordHasher.matches("x", null));
     }
+
+    @Test
+    void isHashedRequiresCompleteWellFormedValue() {
+        assertTrue(PasswordHasher.isHashed(PasswordHasher.hash("Secret1!")));
+
+        assertFalse(PasswordHasher.isHashed("pbkdf2_sha256$"));
+        assertFalse(PasswordHasher.isHashed("pbkdf2_sha256$600000$AAAA"));
+        assertFalse(PasswordHasher.isHashed("pbkdf2_sha256$abc$AAAA$AAAA"));
+        assertFalse(PasswordHasher.isHashed("pbkdf2_sha256$600000$AAAA$"));
+        assertFalse(PasswordHasher.isHashed("pbkdf2_sha256$600000$!!!$AAAA"));
+        assertFalse(PasswordHasher.isHashed("pbkdf2_sha256$600000$AAAA$AAAA$extra"));
+        assertFalse(PasswordHasher.isHashed("Workshop123!"));
+        assertFalse(PasswordHasher.isHashed(null));
+    }
 }

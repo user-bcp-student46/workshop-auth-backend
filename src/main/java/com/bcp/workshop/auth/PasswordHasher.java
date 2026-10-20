@@ -26,26 +26,40 @@ final class PasswordHasher {
     }
 
     static boolean isHashed(String stored) {
-        return stored != null && stored.startsWith(PREFIX + "$");
+        return parse(stored) != null;
     }
 
     static boolean matches(String password, String stored) {
-        if (!isHashed(stored)) {
+        String[] parts = parse(stored);
+        if (parts == null) {
             return false;
         }
-        String[] parts = stored.split("\\$");
-        if (parts.length != 4) {
-            return false;
+        int iterations = Integer.parseInt(parts[1]);
+        byte[] salt = Base64.getDecoder().decode(parts[2]);
+        byte[] expected = Base64.getDecoder().decode(parts[3]);
+        byte[] actual = derive(password, salt, iterations, expected.length * 8);
+        return MessageDigest.isEqual(expected, actual);
+    }
+
+    // Returns the four fields of a well-formed stored value, or null when the value is not a complete PBKDF2 hash.
+    private static String[] parse(String stored) {
+        if (stored == null) {
+            return null;
+        }
+        String[] parts = stored.split("\\$", -1);
+        if (parts.length != 4 || !PREFIX.equals(parts[0])) {
+            return null;
         }
         try {
-            int iterations = Integer.parseInt(parts[1]);
-            byte[] salt = Base64.getDecoder().decode(parts[2]);
-            byte[] expected = Base64.getDecoder().decode(parts[3]);
-            byte[] actual = derive(password, salt, iterations, expected.length * 8);
-            return MessageDigest.isEqual(expected, actual);
+            if (Integer.parseInt(parts[1]) <= 0
+                    || Base64.getDecoder().decode(parts[2]).length == 0
+                    || Base64.getDecoder().decode(parts[3]).length == 0) {
+                return null;
+            }
         } catch (IllegalArgumentException error) {
-            return false;
+            return null;
         }
+        return parts;
     }
 
     private static byte[] derive(String password, byte[] salt, int iterations, int keyBits) {
