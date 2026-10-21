@@ -22,7 +22,7 @@ Campos del body JSON:
 |---|---|---|---|
 | username | string | Si | Usuario de login. Si viene nulo, vacio o en blanco, responde 400. |
 | password | string | Si | Contrasena del usuario. Si viene nula, vacia o en blanco, responde 400. |
-| client | string | No | Campo aceptado por el contrato de entrada, pero no participa en la logica de autenticacion actual. |
+| client | string | No | Identificador del cliente. Si se omite o es nulo, el claim usa `default`. Si esta presente debe cumplir `^[A-Za-z0-9._-]{1,64}$`; de lo contrario responde 400. |
 
 Ejemplo JSON real y completo:
 
@@ -42,19 +42,19 @@ Campos del body JSON:
 
 | campo | tipo | descripcion |
 |---|---|---|
-| token | string | Token generado con la logica actual (Base64 de username, role, exp y secreto). |
-| expiresIn | integer | Tiempo de expiracion expresado en segundos (valor fijo actual: 3600). |
+| token | string | JWT compacto firmado con HS256. El payload no esta cifrado. Contiene `sub`, `client`, `iat`, `exp` y `role`. |
+| expiresIn | integer | Tiempo de expiracion en segundos: 3600. `exp - iat` tambien es 3600. |
 | user | object | Datos del usuario autenticado. |
 | user.username | string | Username persistido del usuario autenticado. |
 | user.displayName | string | Nombre de despliegue del usuario (escapado en HTML). |
 | user.role | string | Rol persistido del usuario (ejemplo: STUDENT o TRAINER). |
 | debug | string | Marca de flujo legacy actual. |
 
-Ejemplo JSON real y completo:
+Ejemplo de forma JSON (el token es un placeholder, no es utilizable):
 
 ```json
 {
-  "token": "c3R1ZGVudHxTVFVERU5UfDE3OTI0ODY5NTh8V09SS1NIT1BfU0VDUkVUXzIwMjY=",
+  "token": "<JWT compacto firmado con HS256>",
   "expiresIn": 3600,
   "user": {
     "username": "student",
@@ -74,6 +74,7 @@ Cuando ocurre:
 - Request nulo.
 - username nulo, vacio o en blanco.
 - password nula, vacia o en blanco.
+- client presente y fuera de `^[A-Za-z0-9._-]{1,64}$` (incluye cadena vacia o en blanco).
 
 Ejemplos de cuerpo:
 
@@ -87,6 +88,10 @@ Ejemplos de cuerpo:
 
 ```json
 {"message":"Password is required"}
+```
+
+```json
+{"message":"Client is invalid"}
 ```
 
 Codigo: 401 Unauthorized
@@ -122,7 +127,9 @@ Pregunta abierta:
 
 ### 6) Notas de seguridad relevantes
 
-- El token actual no es JWT firmado; se construye como Base64 de datos concatenados con secreto embebido y expiracion de 3600 segundos.
+- El token es JWT compacto firmado con HS256; incluye `sub`, `client`, `iat`, `exp` y `role`. `iat` y `exp` son segundos desde Unix y `exp = iat + 3600`.
+- `expiresIn` es 3600. Comparado inmediatamente con `exp - now` al recibir la respuesta, se admite una diferencia absoluta maxima de 5 segundos; esta tolerancia de observacion no extiende la vigencia del token. El verificador rechaza cuando `now >= exp`.
+- JWT no cifra su payload. No incluir contraseñas, secretos ni otros datos sensibles en los claims.
 - La respuesta de error 500 expone detalles internos (mensaje y clase de excepcion).
 - CORS esta habilitado de forma permisiva en configuracion.
 

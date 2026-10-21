@@ -17,7 +17,7 @@ import java.util.Map;
 @Produces(MediaType.APPLICATION_JSON)
 public class AuthResource {
     @Inject
-    LegacyDatabase database;
+    AuthLoginService loginService;
 
     @POST
     @Path("/login")
@@ -32,14 +32,17 @@ public class AuthResource {
                     if (request.password == null || request.password.trim().isEmpty()) {
                         return Response.status(400).entity(Map.of("message", "Password is required")).build();
                     } else {
-                        UserRecord user = database.findByCredentials(request.username, request.password);
-                        if (user == null) {
+                        AuthLoginService.LoginResult result = loginService.authenticate(request);
+                        if (result instanceof AuthLoginService.InvalidClient) {
+                            return Response.status(400).entity(Map.of("message", "Client is invalid")).build();
+                        } else if (result instanceof AuthLoginService.InvalidCredentials) {
                             return Response.status(401).entity(Map.of("message", "Invalid user " + request.username + " or password")).build();
                         } else {
-                            String token = LegacyTokenUtil.create(user.username(), user.role());
+                            AuthLoginService.LoginSuccess success = (AuthLoginService.LoginSuccess) result;
+                            UserRecord user = success.user();
                             Map<String, Object> response = new HashMap<>();
-                            response.put("token", token);
-                            response.put("expiresIn", 3600);
+                            response.put("token", success.token());
+                            response.put("expiresIn", AuthTokenService.TOKEN_TTL_SECONDS);
                             response.put("user", Map.of(
                                     "username", user.username(),
                                     "displayName", StringEscapeUtils.escapeHtml4(user.displayName()),
@@ -53,7 +56,7 @@ public class AuthResource {
             }
         } catch (Exception error) {
             return Response.status(500).entity(Map.of(
-                    "message", error.getMessage() == null ? "Unknown error" : error.getMessage(),
+                "message", "Unknown error",
                     "exception", error.getClass().getName()
             )).build();
         }
